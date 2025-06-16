@@ -20,6 +20,7 @@ class StrandsAgentStack(Stack):
         timeout_minutes = self.node.try_get_context("lambda_timeout") or 10
         reserved_concurrent = self.node.try_get_context("reserved_concurrent")
         function_name = self.node.try_get_context("lambda_function_name") or "strands-agent-sample1"
+        default_model_id = self.node.try_get_context("default_model_id")
         
         # Lambda実行ロールを作成
         lambda_role = iam.Role(
@@ -70,7 +71,7 @@ class StrandsAgentStack(Stack):
             role=lambda_role,
             environment={
                 "PYTHONPATH": "/opt/python",
-                # "DEFAULT_MODEL_ID": "anthropic.claude-3-5-sonnet-20241022-v2:0"  # 必要に応じてコメントアウトを外して設定
+                **({"DEFAULT_MODEL_ID": default_model_id} if default_model_id else {})
             },
             log_retention=logs.RetentionDays.ONE_WEEK,
             description="Strands Agentサーバーレス関数"

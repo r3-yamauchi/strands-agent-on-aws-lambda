@@ -8,6 +8,7 @@ echo "====================================="
 AWS_PROFILE=""
 AWS_REGION=""
 FUNCTION_NAME=""
+MODEL_ID="us.amazon.nova-pro-v1:0"
 
 # コマンドライン引数を解析
 while [[ $# -gt 0 ]]; do
@@ -32,6 +33,10 @@ while [[ $# -gt 0 ]]; do
             FUNCTION_NAME="$2"
             shift 2
             ;;
+        --model|-M)
+            MODEL_ID="$2"
+            shift 2
+            ;;
         --help|-h)
             echo "使用方法: $0 [オプション]"
             echo "オプション:"
@@ -40,6 +45,7 @@ while [[ $# -gt 0 ]]; do
             echo "  -m, --memory <size>      Lambdaメモリサイズ（MB、デフォルト: 1024）"
             echo "  -t, --timeout <minutes>  Lambdaタイムアウト（分、デフォルト: 10）"
             echo "  -n, --name <name>        Lambda関数名（デフォルト: strands-agent-sample1）"
+            echo "  -M, --model <model_id>   BedrockモデルID（デフォルト: us.amazon.nova-pro-v1:0）"
             echo "  -h, --help               このヘルプメッセージを表示"
             exit 0
             ;;
@@ -113,6 +119,9 @@ if [ ! -z "$LAMBDA_TIMEOUT" ]; then
 fi
 if [ ! -z "$FUNCTION_NAME" ]; then
     CDK_CONTEXT="$CDK_CONTEXT -c lambda_function_name=$FUNCTION_NAME"
+fi
+if [ ! -z "$MODEL_ID" ]; then
+    CDK_CONTEXT="$CDK_CONTEXT -c default_model_id=$MODEL_ID"
 fi
 
 cdk synth $CDK_CONTEXT --profile $AWS_PROFILE

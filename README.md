@@ -164,6 +164,36 @@ curl -X POST https://your-function-url.lambda-url.region.on.aws/ \
 }
 ```
 
+#### model_config の詳細
+
+`model_config` オブジェクトでは、Strands Agentがサポートする任意のモデル設定パラメータを指定できます：
+
+```json
+{
+  "prompt": "AIアシスタントへの質問またはタスク",
+  "model_config": {
+    "model": "us.anthropic.claude-3-5-sonnet-20241022-v2:0",
+    "temperature": 0.7,
+    "max_tokens": 4096
+  }
+}
+```
+
+**主な設定可能なパラメータ：**
+- `model`: 使用するBedrockモデルID
+- `temperature`: 生成のランダム性（0-1、デフォルト: 0.7）
+- `max_tokens`: 最大トークン数（デフォルト: 4096）
+- その他Strands Agentがサポートするパラメータ
+
+**利用可能なBedrockモデルID例：**
+- `us.anthropic.claude-3-5-sonnet-20241022-v2:0` (Claude 3.5 Sonnet)
+- `us.anthropic.claude-3-7-sonnet-20250219-v1:0` (Claude 3.7 Sonnet - デフォルト)
+- `us.anthropic.claude-3-haiku-20240307-v1:0` (Claude 3 Haiku)
+
+**注意事項：**
+- 指定するモデルIDは、デプロイ先リージョンのBedrockモデルアクセスで有効化されている必要があります
+- モデルIDのプレフィックス（`us.`など）は、リージョンに応じて適切に設定してください
+
 ### レスポンス形式
 
 **成功時（200）:**
