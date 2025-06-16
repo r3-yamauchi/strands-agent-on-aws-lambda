@@ -12,14 +12,15 @@ AWS Lambda上でStrands Agentを実行するサーバーレスアプリケーシ
 - **Lambda Function URLs**: 直接HTTPSエンドポイントを提供
 - **Lambda Layer**: 依存関係を管理（strands-agents SDK）
 - **IAM Role**: AWS Bedrockへのアクセス権限
-- **ツール実装**: strands-agents-toolsの代わりに`tools.py`で軽量実装
+- **ツール実装**: strands-agents-toolsパッケージを使用（http_request、calculator、current_time）、カスタムツール（generate_hash）
 - **完全な応答キャプチャ**: stdout/stderrをキャプチャしてLLMの思考過程を含む全応答を取得
 
 ### 主要な設計決定
 
-1. **strands-agents-toolsを使用しない**: パッケージサイズ削減のため、必要なツールのみを標準ライブラリで実装
-2. **uv対応**: 高速な依存関係管理とビルドのため
-3. **環境変数サポート**: 柔軟な設定変更を可能にするため
+1. **strands-agents-tools使用**: 公式ツールパッケージを使用して信頼性と機能性を向上
+2. **カスタムツール実装**: generate_hashツールで独自機能を提供（json_formatter、text_analyzerは現在無効化中）
+3. **uv対応**: 高速な依存関係管理とビルドのため
+4. **環境変数サポート**: 柔軟な設定変更を可能にするため
 
 ## 重要なコマンド
 
@@ -50,8 +51,10 @@ cdk destroy --profile <PROFILE>
 ### ローカルテスト
 
 ```bash
-python tests/test_tools_only.py  # ツールのみテスト
-python tests/test_local.py       # Lambda関数テスト（要Bedrock権限）
+python tests/test_strands_tools.py  # strands-agents-toolsツールテスト
+python tests/test_custom_tools.py   # カスタムツールテスト
+python tests/test_local_with_custom_tools.py  # Lambda関数テスト（要Bedrock権限）
+python tests/test_strands_agent.py  # Strands Agent統合テスト
 ```
 
 ### 依存関係管理（uv使用）
@@ -66,14 +69,19 @@ source .venv/bin/activate  # 仮想環境アクティベート
 ```text
 lambda/
 ├── lambda_function.py     # Lambdaハンドラー（日本語コメント付き）
-└── tools.py              # 軽量ツール実装（http_request, calculator, datetime_tool）
+└── custom_tools.py        # カスタムツール実装
 
 stacks/
 └── strands_agent_stack.py # CDKスタック定義（日本語コメント付き）
 
 tests/
-├── test_local.py         # Lambda関数の統合テスト
-└── test_tools_only.py    # ツール単体テスト
+├── test_local.py                    # Lambda関数テスト
+├── test_local_with_custom_tools.py  # カスタムツール含むLambda関数テスト
+├── test_tools_only.py               # ツール単体テスト
+├── test_strands_tools.py           # strands-agents-toolsツールテスト
+├── test_custom_tools.py            # カスタムツール単体テスト
+├── test_strands_agent.py           # Strands Agent統合テスト
+└── test_import.py                  # パッケージインポートテスト
 
 build_layer.py            # Lambda Layer構築スクリプト（uv対応）
 deploy.sh                 # デプロイスクリプト（uv対応）
@@ -94,7 +102,7 @@ pyproject.toml           # Pythonプロジェクト設定（uv用）
 - `ASSISTANT_SYSTEM_PROMPT`: システムプロンプトのカスタマイズ
 - `DEFAULT_TIMEOUT`: HTTPリクエストタイムアウト（デフォルト: 30秒）
 - `MAX_PROMPT_LENGTH`: プロンプト最大文字数（デフォルト: 10000）
-- `DEFAULT_MODEL_ID`: 使用するBedrockモデルID（デフォルト: Claude 3.7 Sonnet）
+- `DEFAULT_MODEL_ID`: 使用するBedrockモデルID（デフォルト: Nova Pro us.amazon.nova-pro-v1:0）
 - `PYTHONPATH`: `/opt/python`（Lambda Layer用）
 - `AWS_REGION`: リージョン設定
 
@@ -113,25 +121,47 @@ pyproject.toml           # Pythonプロジェクト設定（uv用）
 - **思考過程の保存**: LLMのthinkingプロセスとツール使用詳細をキャプチャ
 - **CloudWatch Logs出力**: 完全な応答をログに記録してデバッグに利用可能
 
-## ツール実装の特徴
+## 使用ツール
+
+strands-agents-toolsパッケージから以下のツールを使用：
 
 ### http_request
 
-- 標準ライブラリ`urllib`使用
-- JSON自動エンコード/デコード
-- タイムアウトサポート
+- 包括的な認証サポート（Bearer、Basic、JWT、AWS SigV4など）
+- セッション管理、メトリクス、ストリーミングサポート
+- Cookieハンドリング、リダイレクト制御
 
 ### calculator
 
-- `eval`を安全に使用（制限された関数のみ許可）
-- 三角関数、対数、指数関数サポート
-- エラーメッセージは日本語
+- SymPyを使用した高度な数学演算
+- 式評価、方程式の解、微分・積分、極限、級数展開
+- 行列演算サポート
 
-### datetime_tool
+### current_time
 
-- `datetime.timezone.utc`使用（非推奨の`utcnow()`を回避）
-- `zoneinfo`によるタイムゾーンサポート
-- Python 3.9未満へのフォールバック対応
+- ISO 8601形式で現在時刻を取得
+- タイムゾーンサポート（UTC、US/Pacific、Asia/Tokyoなど）
+- DEFAULT_TIMEZONE環境変数でデフォルトタイムゾーン設定可能
+
+## カスタムツール
+
+custom_tools.pyで実装されているカスタムツール：
+
+### generate_hash
+
+- MD5、SHA1、SHA256、SHA512アルゴリズムサポート
+- テキストのハッシュ値と元のテキスト長を返却
+
+### json_formatter（現在無効化中）
+
+- JSON文字列の整形
+- インデントレベルのカスタマイズ
+- 日本語文字の正しい表示
+
+### text_analyzer（現在無効化中）
+
+- テキストの統計情報分析
+- 文字数、単語数、行数、文字種別カウント
 
 ## CDKスタックの設定
 
@@ -153,8 +183,9 @@ pyproject.toml           # Pythonプロジェクト設定（uv用）
 1. **Bedrock権限**: デプロイ先リージョンでBedrockモデルへのアクセス権限が必要
 2. **Lambda Layerサイズ**: 250MB制限に注意
 3. **日本語処理**: `ensure_ascii=False`を使用してJSONレスポンスで日本語を正しく表示
-4. **タイムゾーン処理**: `datetime.utcnow()`は非推奨のため`datetime.now(timezone.utc)`を使用
-5. **stdoutキャプチャ**: Strands Agentsが出力する内容を全てキャプチャして完全な応答を取得
+4. **strands-agents-tools使用**: 公式ツールパッケージを使用して信頼性の高いツール機能を提供
+5. **カスタムツール拡張**: generate_hashツールで独自機能を追加
+6. **stdoutキャプチャ**: Strands Agentsが出力する内容を全てキャプチャして完全な応答を取得
 
 ## よくあるエラーと対処法
 

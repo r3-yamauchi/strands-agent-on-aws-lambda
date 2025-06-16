@@ -5,8 +5,9 @@
 ## 🚀 特徴
 
 - **サーバーレスアーキテクチャ**: AWS LambdaとLambda Function URLsによる完全サーバーレス構成
-- **AIアシスタント機能**: Strands Agents SDK を使用したAI対話機能（デフォルトでClaude 3.7 Sonnet）
-- **軽量ツール実装**: 標準ライブラリのみを使用した効率的なツール（strands-agents-tools非依存）
+- **AIアシスタント機能**: Strands Agents SDK を使用したAI対話機能（デフォルトでNova Pro）
+- **公式ツール統合**: strands-agents-toolsパッケージによる信頼性の高いツール機能
+- **カスタムツール拡張**: ハッシュ生成などの独自ツール実装（JSON整形、テキスト分析は現在無効化中）
 - **AWS CDK v2対応**: Python 3.11による簡潔なインフラ定義
 - **ARM64アーキテクチャ**: AWS Graviton2によるコスト効率とパフォーマンスの向上（最大20%コスト削減）
 - **uv対応**: 高速なPythonパッケージマネージャーによる効率的な依存関係管理
@@ -16,22 +17,39 @@
 
 ## 📦 含まれるツール
 
-軽量化のため、[strands-agents-tools](https://github.com/strands-agents/tools)パッケージを使用せず、標準ライブラリベースの独自実装を提供：
+### 公式ツール (strands-agents-tools パッケージ)
 
 1. **http_request**: 外部APIへのHTTPリクエスト実行
-   - 標準ライブラリ `urllib` を使用
-   - JSON自動エンコード/デコード対応
-   - タイムアウトサポート
+   - 包括的な認証サポート（Bearer、Basic、JWT、AWS SigV4など）
+   - セッション管理、メトリクス、ストリーミングサポート
+   - Cookieハンドリング、リダイレクト制御
 
-2. **calculator**: 安全な数式計算（三角関数、対数など対応）
-   - `eval` を制限された関数のみで安全に使用
-   - 三角関数、対数、指数関数をサポート
+2. **calculator**: SymPyを使用した高度な数学演算
+   - 式評価、方程式の解、微分・積分、極限、級数展開
+   - 行列演算サポート
    - エラーメッセージは日本語
 
-3. **datetime_tool**: タイムゾーン対応の日時取得
-   - `datetime.timezone.utc` 使用（非推奨の `utcnow()` を回避）
-   - `zoneinfo` によるタイムゾーンサポート
-   - Python 3.9未満へのフォールバック対応
+3. **current_time**: タイムゾーン対応の現在時刻取得
+   - ISO 8601形式で現在時刻を取得
+   - タイムゾーンサポート（UTC、US/Pacific、Asia/Tokyoなど）
+   - DEFAULT_TIMEZONE環境変数でデフォルトタイムゾーン設定可能
+
+### カスタムツール (独自実装)
+
+4. **generate_hash**: テキストのハッシュ値生成
+   - MD5、SHA1、SHA256、SHA512アルゴリズムサポート
+   - 元のテキスト長も返却
+
+5. **json_formatter**: JSON文字列の整形（現在無効化中）
+   - インデントレベルのカスタマイズ可能
+   - 日本語文字の正しい表示（ensure_ascii=False）
+   - キーのソート
+
+6. **text_analyzer**: テキストの統計情報分析（現在無効化中）
+   - 総文字数、単語数、行数のカウント
+   - 文字種別カウント（大文字、小文字、数字、空白文字）
+   - 日本語文字カウント（ひらがな、カタカナ、漢字）
+   - 平均単語長の計算
 
 ## 🏗️ アーキテクチャ
 
@@ -147,7 +165,7 @@ pip install -r requirements-dev.txt
 curl -X POST https://your-function-url.lambda-url.region.on.aws/ \
   -H 'Content-Type: application/json' \
   -d '{
-    "prompt": "現在の日時を教えてください。また、100の平方根を計算してください。"
+    "prompt": "現在の日時を教えてください。また、100の平方根を計算してください。'Hello World'のSHA256ハッシュも生成してください。"
   }'
 ```
 
@@ -186,8 +204,11 @@ curl -X POST https://your-function-url.lambda-url.region.on.aws/ \
 - その他Strands Agentがサポートするパラメータ
 
 **利用可能なBedrockモデルID例：**
+- `us.amazon.nova-pro-v1:0` (Nova Pro - デフォルト)
+- `us.amazon.nova-lite-v1:0` (Nova Lite)
+- `us.amazon.nova-micro-v1:0` (Nova Micro)
 - `us.anthropic.claude-3-5-sonnet-20241022-v2:0` (Claude 3.5 Sonnet)
-- `us.anthropic.claude-3-7-sonnet-20250219-v1:0` (Claude 3.7 Sonnet - デフォルト)
+- `us.anthropic.claude-3-7-sonnet-20250219-v1:0` (Claude 3.7 Sonnet)
 - `us.anthropic.claude-3-haiku-20240307-v1:0` (Claude 3 Haiku)
 
 **注意事項：**
@@ -202,10 +223,7 @@ curl -X POST https://your-function-url.lambda-url.region.on.aws/ \
   "response": "現在の日時は2024年6月16日...",
   "prompt": "元のプロンプト",
   "success": true,
-  "model_used": "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
-  "full_response": {
-    // LLMの完全な応答（thinking、ツール使用などを含む）
-  }
+  "model_used": "us.amazon.nova-pro-v1:0"
 }
 ```
 
@@ -227,13 +245,13 @@ Lambda関数で使用可能な環境変数：
 | `ASSISTANT_SYSTEM_PROMPT` | アシスタントのシステムプロンプト | 内蔵プロンプト |
 | `DEFAULT_TIMEOUT` | HTTPリクエストのタイムアウト（秒） | `30` |
 | `MAX_PROMPT_LENGTH` | プロンプトの最大文字数 | `10000` |
-| `DEFAULT_MODEL_ID` | 使用するBedrockモデルID | `us.anthropic.claude-3-7-sonnet-20250219-v1:0` |
+| `DEFAULT_MODEL_ID` | 使用するBedrockモデルID | `us.amazon.nova-pro-v1:0` |
 | `PYTHONPATH` | Lambda Layer用パス（自動設定） | `/opt/python` |
 | `AWS_REGION` | AWSリージョン（自動設定） | デプロイ先リージョン |
 
 ## 🤖 使用されるLLMモデル
 
-デフォルトでは、Amazon BedrockのClaude 3.7 Sonnet（`us.anthropic.claude-3-7-sonnet-20250219-v1:0`）が使用されます。
+デフォルトでは、Amazon BedrockのNova Pro（`us.amazon.nova-pro-v1:0`）が使用されます。
 
 モデルの変更方法：
 1. 環境変数 `DEFAULT_MODEL_ID` で設定
@@ -257,7 +275,7 @@ Lambda関数で使用可能な環境変数：
 
 Lambda関数は以下の情報をCloudWatch Logsに記録します：
 
-- **ロググループ**: `/aws/lambda/StrandsAgentFunction`
+- **ロググループ**: `/aws/lambda/<関数名>` (デフォルト: `/aws/lambda/strands-agent-sample1`)
 - **保持期間**: 1週間（変更可能）
 - **ログレベル**: INFO
 - **記録される情報**:
@@ -269,7 +287,7 @@ Lambda関数は以下の情報をCloudWatch Logsに記録します：
 ログの確認方法：
 ```bash
 # CloudWatch Logsでログを確認
-aws logs tail /aws/lambda/StrandsAgentFunction --follow --profile <your-profile>
+aws logs tail /aws/lambda/strands-agent-sample1 --follow --profile <your-profile>
 ```
 
 ### メトリクス
@@ -286,23 +304,34 @@ aws logs tail /aws/lambda/StrandsAgentFunction --follow --profile <your-profile>
 
 ### ツールのテスト
 
-外部依存なしでツール実装をテスト：
+公式ツール（strands-agents-tools）のテスト：
 
 ```bash
-python tests/test_tools_only.py
+python tests/test_strands_tools.py
+```
+
+カスタムツールの単体テスト：
+
+```bash
+python tests/test_custom_tools.py
 ```
 
 テスト内容：
-- calculator: 基本演算と数学関数
-- datetime_tool: UTC時間とタイムゾーン処理
-- http_request: HTTPリクエストとレスポンス処理
+- **公式ツール**: calculator、current_time、http_request
+- **カスタムツール**: generate_hash、json_formatter、text_analyzer
 
 ### Lambda関数のテスト（要Bedrock権限）
 
-実際のLambda関数と同じ環境でテスト：
+カスタムツールを含む完全なLambda関数テスト：
 
 ```bash
-python tests/test_local.py
+python tests/test_local_with_custom_tools.py
+```
+
+Strands Agent統合テスト：
+
+```bash
+python tests/test_strands_agent.py
 ```
 
 注意: AWS認証情報とBedrockへのアクセス権限が必要です。
@@ -313,12 +342,17 @@ python tests/test_local.py
 .
 ├── lambda/                    # Lambda関数コード
 │   ├── lambda_function.py     # メインハンドラー
-│   └── tools.py              # ツール実装
+│   └── custom_tools.py       # カスタムツール実装
 ├── stacks/                   # CDKスタック定義
 │   └── strands_agent_stack.py
 ├── tests/                    # テストスクリプト
 │   ├── test_local.py         # Lambda関数テスト
-│   └── test_tools_only.py    # ツール単体テスト
+│   ├── test_local_with_custom_tools.py # カスタムツール含むLambda関数テスト
+│   ├── test_tools_only.py    # ツール単体テスト
+│   ├── test_strands_tools.py # strands-agents-toolsツールテスト
+│   ├── test_custom_tools.py  # カスタムツール単体テスト
+│   ├── test_strands_agent.py # Strands Agent統合テスト
+│   └── test_import.py        # パッケージインポートテスト
 ├── app.py                    # CDKアプリケーション
 ├── deploy.sh                 # デプロイスクリプト
 ├── build_layer.py            # Lambda Layer構築
@@ -341,7 +375,7 @@ CDKスタックは以下のAWSリソースをプロビジョニングします�
    - 予約同時実行数の設定可能
 
 2. **Lambda Layer**
-   - strands-agents SDK v0.1.7と依存関係を含む
+   - strands-agents SDK v0.1.7、strands-agents-tools v0.1.5、および依存関係を含む
    - ARM64アーキテクチャ用にビルド（aarch64-unknown-linux-gnu）
    - Lambda関数のサイズを削減し、デプロイを高速化
    - サイズ制限: 250MB以内

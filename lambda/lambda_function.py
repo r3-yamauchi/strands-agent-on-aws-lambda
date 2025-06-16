@@ -2,15 +2,18 @@
 AWS Lambda関数エントリーポイント
 Strands Agentを使用してAIアシスタント機能を提供
 """
-import json
+import io
 import os
+import sys
+import json
 import logging
 from typing import Dict, Any
 from strands import Agent
 from strands.models import BedrockModel
-from tools import http_request, calculator, datetime_tool
-import io
-import sys
+from strands_tools import http_request, calculator, current_time
+# カスタムツールをインポート
+from custom_tools import generate_hash
+# from custom_tools import generate_hash, json_formatter, text_analyzer
 
 # ロガーの設定
 logger = logging.getLogger()
@@ -20,14 +23,15 @@ logger.setLevel(logging.INFO)
 ASSISTANT_SYSTEM_PROMPT = os.environ.get(
     'ASSISTANT_SYSTEM_PROMPT',
     """あなたは様々なツールにアクセスできる有用なAIアシスタントです。
-HTTPリクエストの実行、数式の計算、現在の日時情報の取得が可能です。
+HTTPリクエストの実行、数式の計算、現在の日時情報の取得に加えて、
+ハッシュ生成、JSON整形、テキスト分析などの追加機能も利用できます。
 常に親切で、利用可能なツールを使って正確な情報を提供してください。"""
 )
 
 # Lambda設定定数
 DEFAULT_TIMEOUT = int(os.environ.get('DEFAULT_TIMEOUT', '30'))  # デフォルトタイムアウト（秒）
 MAX_PROMPT_LENGTH = int(os.environ.get('MAX_PROMPT_LENGTH', '10000'))  # プロンプトの最大文字数
-DEFAULT_MODEL_ID = os.environ.get('DEFAULT_MODEL_ID', None)  # デフォルトのBedrockモデルID
+DEFAULT_MODEL_ID = os.environ.get('DEFAULT_MODEL_ID', 'us.amazon.nova-pro-v1:0')  # デフォルトのBedrockモデルID
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
@@ -82,7 +86,14 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
         agent = Agent(
             system_prompt=ASSISTANT_SYSTEM_PROMPT,
-            tools=[http_request, calculator, datetime_tool],
+            tools=[
+                http_request,
+                calculator,
+                current_time,
+                generate_hash,
+                # json_formatter,
+                # text_analyzer
+            ],
             **model_config  # カスタムモデル設定を許可
         )
         
@@ -130,14 +141,14 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     used_model = model_config['model']
                 else:
                     # Strands Agentsのデフォルト
-                    used_model = "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
-                    logger.info("デフォルトモデルを使用")
+                    used_model = DEFAULT_MODEL_ID
+                    logger.info(f"デフォルトモデル {DEFAULT_MODEL_ID} を使用")
                     
             logger.info(f"使用モデル: {used_model}")
             
         except Exception as e:
             logger.error(f"モデル情報の取得中にエラー: {str(e)}", exc_info=True)
-            used_model = "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
+            used_model = DEFAULT_MODEL_ID
         
         # プロンプトを処理
         logger.info(f"プロンプトを処理中: {prompt[:100]}...")  # 最初の100文字をログ出力
