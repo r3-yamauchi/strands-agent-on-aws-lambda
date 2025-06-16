@@ -41,6 +41,53 @@ class StrandsAgentStack(Stack):
                                 "bedrock:ConverseStream"
                             ],
                             resources=["*"]  # 特定のモデルARNに制限することも可能
+                        ),
+                        # use_awsツール用の権限
+                        iam.PolicyStatement(
+                            effect=iam.Effect.ALLOW,
+                            actions=[
+                                # S3権限
+                                "s3:ListBucket",
+                                "s3:GetObject",
+                                "s3:PutObject",
+                                "s3:DeleteObject",
+                                "s3:ListAllMyBuckets",
+                                # DynamoDB権限
+                                "dynamodb:ListTables",
+                                "dynamodb:DescribeTable",
+                                "dynamodb:GetItem",
+                                "dynamodb:PutItem",
+                                "dynamodb:Query",
+                                "dynamodb:Scan",
+                                # Systems Manager権限
+                                "ssm:GetParameter",
+                                "ssm:GetParameters",
+                                "ssm:PutParameter",
+                                "ssm:GetParametersByPath",
+                                # CloudWatch権限
+                                "cloudwatch:PutMetricData",
+                                "cloudwatch:GetMetricStatistics",
+                                # Lambda権限
+                                "lambda:ListFunctions",
+                                "lambda:GetFunction",
+                                "lambda:GetFunctionConfiguration",
+                                "lambda:ListVersionsByFunction",
+                                "lambda:ListAliases",
+                                "lambda:GetPolicy",
+                                "lambda:ListTags",
+                                # EC2権限
+                                "ec2:DescribeInstances",
+                                "ec2:DescribeInstanceStatus",
+                                "ec2:DescribeSecurityGroups",
+                                "ec2:DescribeSubnets",
+                                "ec2:DescribeVpcs",
+                                "ec2:DescribeImages",
+                                "ec2:DescribeKeyPairs",
+                                "ec2:DescribeSnapshots",
+                                "ec2:DescribeVolumes",
+                                "ec2:DescribeTags"
+                            ],
+                            resources=["*"]  # 本番環境では必要なリソースのみに制限することを推奨
                         )
                     ]
                 )

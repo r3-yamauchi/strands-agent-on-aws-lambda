@@ -7,7 +7,7 @@
 - **サーバーレスアーキテクチャ**: AWS LambdaとLambda Function URLsによる完全サーバーレス構成
 - **AIアシスタント機能**: Strands Agents SDK を使用したAI対話機能（デフォルトでNova Pro）
 - **公式ツール統合**: strands-agents-toolsパッケージによる信頼性の高いツール機能
-- **カスタムツール拡張**: ハッシュ生成などの独自ツール実装（JSON整形、テキスト分析は現在無効化中）
+- **カスタムツール拡張**: ハッシュ生成、JSON整形、テキスト分析などの独自ツール実装
 - **AWS CDK v2対応**: Python 3.11による簡潔なインフラ定義
 - **ARM64アーキテクチャ**: AWS Graviton2によるコスト効率とパフォーマンスの向上（最大20%コスト削減）
 - **uv対応**: 高速なPythonパッケージマネージャーによる効率的な依存関係管理
@@ -34,18 +34,26 @@
    - タイムゾーンサポート（UTC、US/Pacific、Asia/Tokyoなど）
    - DEFAULT_TIMEZONE環境変数でデフォルトタイムゾーン設定可能
 
+4. **use_aws**: AWSサービスとの統合
+   - S3: バケット一覧、オブジェクトの取得/作成/削除
+   - DynamoDB: テーブル一覧、アイテムの取得/作成
+   - Systems Manager: パラメータの取得/設定
+   - CloudWatch: メトリクスの送信
+   - Lambda: 関数一覧、関数の詳細情報取得
+   - EC2: インスタンス一覧、インスタンスの状態確認
+
 ### カスタムツール (独自実装)
 
-4. **generate_hash**: テキストのハッシュ値生成
+5. **generate_hash**: テキストのハッシュ値生成
    - MD5、SHA1、SHA256、SHA512アルゴリズムサポート
    - 元のテキスト長も返却
 
-5. **json_formatter**: JSON文字列の整形（現在無効化中）
+6. **json_formatter**: JSON文字列の整形
    - インデントレベルのカスタマイズ可能
    - 日本語文字の正しい表示（ensure_ascii=False）
    - キーのソート
 
-6. **text_analyzer**: テキストの統計情報分析（現在無効化中）
+7. **text_analyzer**: テキストの統計情報分析
    - 総文字数、単語数、行数のカウント
    - 文字種別カウント（大文字、小文字、数字、空白文字）
    - 日本語文字カウント（ひらがな、カタカナ、漢字）
@@ -71,11 +79,12 @@
 ## 📋 前提条件
 
 - **Python 3.11以上** - Lambda関数のランタイム要件
-- **AWS CLIが設定済み** - 適切な認証情報とプロファイル設定
+- **AWS CLI v2.13.0以上** - AWS Bedrockサポートが必要
 - **AWS CDK v2 CLI** - `npm install -g aws-cdk` でインストール
-- **（推奨）uv パッケージマネージャー** - 高速な依存関係管理
+- **uv パッケージマネージャー** - 高速な依存関係管理（必須）
 - **AWS Bedrockへのアクセス権限** - デプロイ先リージョンでBedrockが利用可能であること
 - **CDKブートストラップ済み** - 初回デプロイ時は `cdk bootstrap` が必要
+
 
 ## 🛠️ セットアップ
 
@@ -99,15 +108,13 @@ uv sync
 source .venv/bin/activate
 ```
 
-### 3. 依存関係のインストール（pipを使用）
+### 3. 依存関係のインストール（pipフォールバック）
+
+注意: 本プロジェクトはuvによる管理を前提としています。pipの使用は非推奨です。
 
 ```bash
-# 仮想環境を作成
-python -m venv venv
-source venv/bin/activate
-
-# 依存関係をインストール
-pip install -r requirements-dev.txt
+# pyproject.tomlから依存関係をインストール（非推奨）
+pip install -e .
 ```
 
 ## 🚀 デプロイ
@@ -240,6 +247,8 @@ curl -X POST https://your-function-url.lambda-url.region.on.aws/ \
 
 Lambda関数で使用可能な環境変数：
 
+### 基本設定
+
 | 環境変数 | 説明 | デフォルト値 |
 |---------|------|-------------|
 | `ASSISTANT_SYSTEM_PROMPT` | アシスタントのシステムプロンプト | 内蔵プロンプト |
@@ -248,6 +257,16 @@ Lambda関数で使用可能な環境変数：
 | `DEFAULT_MODEL_ID` | 使用するBedrockモデルID | `us.amazon.nova-pro-v1:0` |
 | `PYTHONPATH` | Lambda Layer用パス（自動設定） | `/opt/python` |
 | `AWS_REGION` | AWSリージョン（自動設定） | デプロイ先リージョン |
+
+### ツール制御
+
+| 環境変数 | 説明 | デフォルト値 |
+|---------|------|-------------|
+| `ENABLE_CUSTOM_TOOLS` | カスタムツール全体の有効/無効 | `true` |
+| `ENABLE_HASH_GENERATOR` | ハッシュ生成ツールの有効/無効 | `true` |
+| `ENABLE_JSON_FORMATTER` | JSON整形ツールの有効/無効 | `true` |
+| `ENABLE_TEXT_ANALYZER` | テキスト分析ツールの有効/無効 | `true` |
+| `ENABLE_AWS_TOOLS` | use_awsツールの有効/無効 | `true` |
 
 ## 🤖 使用されるLLMモデル
 
@@ -302,36 +321,31 @@ aws logs tail /aws/lambda/strands-agent-sample1 --follow --profile <your-profile
 
 ## 🧪 ローカルテスト
 
-### ツールのテスト
-
-公式ツール（strands-agents-tools）のテスト：
+### 統合テストの実行
 
 ```bash
-python tests/test_strands_tools.py
-```
+# 全テストの実行
+pytest tests/ -v
 
-カスタムツールの単体テスト：
-
-```bash
-python tests/test_custom_tools.py
+# 個別テストの実行
+pytest tests/test_strands_tools.py -v    # 公式ツールのテスト
+pytest tests/test_custom_tools.py -v      # カスタムツールのテスト
+pytest tests/test_strands_agent.py -v     # Strands Agentのテスト
 ```
 
 テスト内容：
-- **公式ツール**: calculator、current_time、http_request
+- **公式ツール**: calculator、current_time、http_request、use_aws
 - **カスタムツール**: generate_hash、json_formatter、text_analyzer
+- **統合テスト**: Lambda関数、エラー処理、設定管理
 
-### Lambda関数のテスト（要Bedrock権限）
-
-カスタムツールを含む完全なLambda関数テスト：
-
-```bash
-python tests/test_local_with_custom_tools.py
-```
-
-Strands Agent統合テスト：
+### Lambda関数のテスト
 
 ```bash
-python tests/test_strands_agent.py
+# モックを使用したテスト（Bedrock不要）
+pytest tests/test_lambda.py -v
+
+# 実際のLambdaハンドラーテスト（Bedrock必須）
+python tests/test_lambda.py --real
 ```
 
 注意: AWS認証情報とBedrockへのアクセス権限が必要です。
@@ -342,22 +356,24 @@ python tests/test_strands_agent.py
 .
 ├── lambda/                    # Lambda関数コード
 │   ├── lambda_function.py     # メインハンドラー
-│   └── custom_tools.py       # カスタムツール実装
+│   ├── custom_tools.py        # カスタムツール実装
+│   ├── config.py              # 設定管理（環境変数、型定義）
+│   └── utils.py               # ユーティリティ関数（エラー処理、キャプチャ）
 ├── stacks/                   # CDKスタック定義
+│   ├── __init__.py
 │   └── strands_agent_stack.py
-├── tests/                    # テストスクリプト
-│   ├── test_local.py         # Lambda関数テスト
-│   ├── test_local_with_custom_tools.py # カスタムツール含むLambda関数テスト
-│   ├── test_tools_only.py    # ツール単体テスト
-│   ├── test_strands_tools.py # strands-agents-toolsツールテスト
-│   ├── test_custom_tools.py  # カスタムツール単体テスト
-│   ├── test_strands_agent.py # Strands Agent統合テスト
-│   └── test_import.py        # パッケージインポートテスト
+├── tests/                    # テストスイート
+│   ├── __init__.py
+│   ├── conftest.py           # pytest設定
+│   ├── test_tools.py         # ツール統合テスト
+│   ├── test_lambda.py        # Lambda関数テスト
+│   └── README.md             # テストドキュメント
 ├── app.py                    # CDKアプリケーション
-├── deploy.sh                 # デプロイスクリプト
+├── deploy.sh                 # デプロイスクリプト v2.0.0
 ├── build_layer.py            # Lambda Layer構築
-├── pyproject.toml            # Pythonプロジェクト設定
-└── cdk.json                  # CDK設定
+├── pyproject.toml            # Pythonプロジェクト設定（uv用、依存関係一元管理）
+├── cdk.json                  # CDK設定
+└── .gitignore                # Git除外設定
 ```
 
 ## 🏗️ CDKスタック構成
@@ -392,6 +408,13 @@ CDKスタックは以下のAWSリソースをプロビジョニングします�
    - AWS Bedrock InvokeModel権限
    - CloudWatch Logs書き込み権限
    - X-Ray トレーシング権限（オプション）
+   - use_awsツール用の権限:
+     - S3: ListBucket, GetObject, PutObject, DeleteObject, ListAllMyBuckets
+     - DynamoDB: ListTables, DescribeTable, GetItem, PutItem, Query, Scan
+     - Systems Manager: GetParameter, PutParameter, GetParametersByPath
+     - CloudWatch: PutMetricData, GetMetricStatistics
+     - Lambda: ListFunctions, GetFunction, GetFunctionConfiguration, ListVersionsByFunction
+     - EC2: DescribeInstances, DescribeInstanceStatus, DescribeSecurityGroups, DescribeVpcs等
 
 ### スタック構造
 
@@ -556,8 +579,9 @@ x86_64に変更する必要がある場合は、以下を修正してくださ�
 
 ### 1. 最小権限の原則
    - 必要最小限のIAM権限のみを付与
-   - Bedrock InvokeModel権限のみに制限
-   - リソースベースのポリシーを使用
+   - use_awsツールを使用する場合は、アクセス可能なリソースを制限することを推奨
+   - 本番環境では、リソースARNを指定して特定のリソースのみへのアクセスに制限
+   - 例: 特定のS3バケット、特定のDynamoDBテーブルのみへのアクセス許可
 
 ### 2. 認証/認可
    - 現在の設定: パブリックアクセス（auth_type=NONE）

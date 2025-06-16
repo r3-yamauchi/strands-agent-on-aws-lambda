@@ -22,46 +22,18 @@ def build_layer():
     
     os.makedirs(python_dir)
     
-    # uvが利用可能か確認
-    try:
-        subprocess.run(["uv", "--version"], check=True, capture_output=True)
-        use_uv = True
-        print("uvを使用して依存関係をインストール...")
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        use_uv = False
-        print("uvが見つかりません、pipにフォールバックします...")
+    # pyproject.tomlから依存関係をインストール
+    print("uvを使用して依存関係をインストール中...")
     
-    # レイヤーディレクトリに依存関係をインストール
-    print("依存関係をインストール中...")
-    if use_uv:
-        # pyproject.tomlからrequirementsをエクスポート
-        subprocess.check_call([
-            "uv", "pip", "compile", "pyproject.toml",
-            "-o", "requirements-lambda.txt",
-            "--no-emit-package", "strands-agent-lambda"
-        ])
-        
-        # uvを使用してインストール
-        subprocess.check_call([
-            "uv", "pip", "install",
-            "-r", "requirements-lambda.txt",
-            "--target", python_dir,
-            "--python-platform", "aarch64-unknown-linux-gnu",
-            "--python-version", "3.11"
-        ])
-        
-        # 一時ファイルをクリーンアップ
-        os.remove("requirements-lambda.txt")
-    else:
-        # pipにフォールバック
-        subprocess.check_call([
-            sys.executable, "-m", "pip", "install",
-            "-r", "requirements.txt",
-            "-t", python_dir,
-            "--platform", "manylinux2014_aarch64",
-            "--only-binary", ":all:",
-            "--upgrade"
-        ])
+    # pyproject.tomlから依存関係を読み取って直接インストール
+    subprocess.check_call([
+        "uv", "pip", "install",
+        "strands-agents>=0.1.7",
+        "strands-agents-tools>=0.1.5",
+        "--target", python_dir,
+        "--python-platform", "aarch64-unknown-linux-gnu",
+        "--python-version", "3.11"
+    ])
     
     # レイヤーサイズを削減するため不要なファイルを削除
     print("不要なファイルをクリーンアップ中...")

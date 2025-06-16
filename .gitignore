@@ -9,8 +9,14 @@ env/
 ENV/
 .venv/
 
-# uv
+# Package managers
 uv.lock
+.eggs/
+*.egg-info/
+*.egg
+PIPFILE.lock
+dist/
+build/
 
 # CDK
 cdk.out/
@@ -35,9 +41,25 @@ Thumbs.db
 
 # AWS
 .aws-sam/
+cdk.context.json
 
-# Test files
-# (テストファイルはtestsディレクトリで管理)
+# Environment variables
+.env
+.env.local
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Test coverage
+.coverage
+.coverage.*
+.pytest_cache/
+htmlcov/
+nosetests.xml
+coverage.xml
+*.cover
 
 # Temporary files
 *.log

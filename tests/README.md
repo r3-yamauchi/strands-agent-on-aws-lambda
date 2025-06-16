@@ -1,85 +1,126 @@
-# テストスクリプト
+# テストスイート
 
-このディレクトリには、Lambda関数とツールのテストスクリプトが含まれています。
+このディレクトリには、Lambda関数とツールの統合テストスイートが含まれています。
 
 ## 📁 ファイル構成
 
-- `test_tools_only.py` - 個別ツールの動作確認
-- `test_local.py` - Lambda関数の統合テスト（要Bedrock権限）
+- `test_tools.py` - strands-agents-toolsの全機能テスト（外部依存なし）
+- `test_lambda.py` - Lambda関数の統合テスト（モック/実機両対応）
+- `test_custom_tools_pytest.py` - カスタムツールのpytestテスト（カスタムツール使用時のみ）
+- `conftest.py` - pytestの設定とフィクスチャ定義
 
 ## 🧪 実行方法
 
-### ツールのみのテスト
+### ツールテスト（外部依存なし）
 
 ```bash
-# testsディレクトリから実行
-cd tests
-python test_tools_only.py
+# 基本的なツールテスト
+python tests/test_tools.py
 
-# またはプロジェクトルートから
-python tests/test_tools_only.py
+# pytestを使用
+pytest tests/test_tools.py -v
 ```
 
-このテストは外部依存なしで実行可能です。
-
-### Lambda関数のテスト
+### Lambda関数テスト
 
 ```bash
-# testsディレクトリから実行
-cd tests
-python test_local.py
+# モックを使用したテスト（Bedrock不要）
+pytest tests/test_lambda.py -v
 
-# またはプロジェクトルートから
-python tests/test_local.py
+# 実際のBedrockを使用したテスト
+python tests/test_lambda.py --real
 ```
 
-⚠️ **注意**: このテストにはAWS Bedrockへのアクセス権限が必要です。
+⚠️ **注意**: `--real`オプションにはAWS Bedrockへのアクセス権限が必要です。
+
+### 全テストの実行
+
+```bash
+# pytestで全テストを実行
+pytest tests/ -v
+
+# カバレッジレポート付き
+pytest tests/ --cov=lambda --cov-report=html
+```
 
 ## 📝 テスト内容
 
-### test_tools_only.py
+### test_tools.py
 
-1. **calculator** - 数式計算機能
-   - 基本的な算術演算
-   - 数学関数（sqrt、sin等）
+1. **ツールインポートテスト**
+   - strands-agents-toolsの正常インポート確認
+   - TOOL_SPEC属性の検証
 
-2. **datetime_tool** - 日時取得機能
-   - UTC時間の取得
-   - タイムゾーン処理
+2. **calculator** - 数式計算機能
+   - 基本的な算術演算（+、-、*、/）
+   - 数学関数（sqrt、sin、cos、exp、log）
+   - べき乗計算
 
-3. **http_request** - HTTPリクエスト機能
+3. **current_time** - 日時取得機能
+   - デフォルトタイムゾーン
+   - 各種タイムゾーン（UTC、Asia/Tokyo、US/Pacific等）
+   - ISO 8601形式の検証
+
+4. **http_request** - HTTPリクエスト機能
    - GETリクエストの実行
-   - レスポンスの検証
+   - レスポンス構造の検証
 
-### test_local.py
+### test_lambda.py
 
-Lambda関数の統合テストケース：
+**モックテスト（pytest）：**
+- 基本的な計算処理
+- 現在時刻取得
+- エラーハンドリング（プロンプトなし、長すぎるプロンプト）
+- モデル設定のカスタマイズ
 
-1. **日付と計算のテスト** - 複数ツールの組み合わせ
-2. **複雑な計算テスト** - 高度な数式処理
-3. **HTTPリクエストテスト** - 外部API呼び出し
-4. **エラーハンドリング** - プロンプトなしのケース
+**実機テスト（--realオプション）：**
+- 日付と計算の組み合わせ
+- 複雑な数式処理
+- ハッシュ生成機能
 
 ## 🔧 トラブルシューティング
 
 ### ModuleNotFoundError
 
 ```bash
-# プロジェクトルートから実行することを推奨
-python tests/test_tools_only.py
+# 仮想環境を確認
+source .venv/bin/activate
+
+# 依存関係を再インストール
+uv sync
 ```
 
-### AccessDeniedException
-
-AWS認証情報とBedrockへのアクセス権限を確認してください：
+### AccessDeniedException (Bedrock)
 
 ```bash
+# AWS認証情報を確認
 aws configure list
+
+# Bedrockアクセスを確認
 aws bedrock list-foundation-models --region <your-region>
 ```
 
-## 🚀 今後の改善予定
+### pytest not found
 
-- モックを使用した単体テストの追加
-- pytest フレームワークの導入
-- CI/CD対応のテストスイート構築
+```bash
+# pytestをインストール
+pip install pytest pytest-cov pytest-mock
+```
+
+## 🚀 CI/CD統合
+
+GitHub Actionsでの自動テスト：
+
+```yaml
+# .github/workflows/test.yml
+- name: Run tests
+  run: |
+    pytest tests/ -v --cov=lambda
+```
+
+## 📊 テストカバレッジ
+
+現在のカバレッジ目標：
+- Lambda関数コード: 80%以上
+- ツール統合: 90%以上
+- エラーハンドリング: 100%
