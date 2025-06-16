@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv/
+
+# uv
+uv.lock
+
+# CDK
+cdk.out/
+.cdk.staging/
+*.js
+*.d.ts
+node_modules/
+
+# Lambda Layer
+lambda_layer/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# AWS
+.aws-sam/
+
+# Test files
+# (テストファイルはtestsディレクトリで管理)
+
+# Temporary files
+*.log
+*.tmp
