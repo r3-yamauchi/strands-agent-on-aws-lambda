@@ -15,7 +15,7 @@ StrandsAgentStack(
     app, 
     "StrandsAgentStack",
     env=env,
-    description="AWS Lambda上で動作するStrands Agent"
+    description="Strands Agents on Lambda Function"
 )
 
 app.synth()
