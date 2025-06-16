@@ -1,0 +1,5 @@
+# Note: These dependencies are expected to be provided by the Lambda Layer
+# This file is for reference and local testing purposes
+
+strands-agents>=0.1.0
+strands-agents-tools>=0.1.0

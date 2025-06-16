@@ -1,0 +1,38 @@
+{
+  "functionName": "strands-agent-sample",
+  "runtime": "python3.12",
+  "handler": "lambda_function.lambda_handler",
+  "timeout": 300,
+  "memorySize": 512,
+  "description": "Sample Lambda function using AWS Strands Agents SDK",
+  "environment": {
+    "variables": {
+      "LOG_LEVEL": "INFO"
+    }
+  },
+  "layers": [
+    "arn:aws:lambda:REGION:ACCOUNT_ID:layer:strands-agents-sdk:VERSION"
+  ],
+  "role": "arn:aws:iam::ACCOUNT_ID:role/strands-agent-lambda-role",
+  "iamPolicyStatements": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "bedrock:InvokeModel",
+        "bedrock:InvokeModelWithResponseStream"
+      ],
+      "Resource": [
+        "arn:aws:bedrock:*::foundation-model/*"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": "arn:aws:logs:*:*:*"
+    }
+  ]
+}
